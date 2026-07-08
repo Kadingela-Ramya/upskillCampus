@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart City Traffic Forecaster</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0b0f1a;
+      --surface:  #131929;
+      --card:     #1a2236;
+      --border:   #243050;
+      --accent:   #00e5ff;
+      --accent2:  #ff6b35;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --green:    #00ff88;
+      --red:      #ff4d6d;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 48px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), #0070ff);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+
+    h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.4rem;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .badge {
+      background: rgba(0,229,255,0.1);
+      border: 1px solid rgba(0,229,255,0.2);
+      color: var(--accent);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-top: 6px;
+      display: inline-block;
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.5rem;
+      color: var(--accent);
+    }
+
+    .stat-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Main grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* Form panel */
+    .form-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+
+    .panel-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-title::before {
+      content: '';
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+    }
+
+    select, input[type="datetime-local"] {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 12px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+      appearance: none;
+    }
+
+    select:focus, input:focus {
+      border-color: var(--accent);
+    }
+
+    .junction-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .junction-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      padding: 14px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+    }
+
+    .junction-btn:hover { border-color: var(--accent); color: var(--text); }
+    .junction-btn.active {
+      background: rgba(0,229,255,0.1);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .junction-btn .j-num {
+      font-size: 1.4rem;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .predict-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent), #0070ff);
+      border: none;
+      border-radius: 10px;
+      color: #000;
+      padding: 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 8px;
+    }
+
+    .predict-btn:hover { opacity: 0.9; }
+    .predict-btn:active { transform: scale(0.98); }
+    .predict-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Chart panel */
+    .chart-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .result-highlight {
+      text-align: right;
+    }
+
+    .result-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .result-value {
+      font-family: 'Space Mono', monospace;
+      font-size: 2rem;
+      color: var(--green);
+      line-height: 1;
+    }
+
+    .result-unit {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    canvas { width: 100% !important; }
+
+    /* Traffic level bar */
+    .traffic-levels {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 4px;
+      margin-top: 20px;
+    }
+
+    .level-block {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      transition: background 0.4s;
+    }
+
+    .level-block.low    { background: var(--green); }
+    .level-block.medium { background: var(--accent2); }
+    .level-block.high   { background: var(--red); }
+
+    /* Status message */
+    .status {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 16px;
+      font-family: 'Space Mono', monospace;
+      min-height: 20px;
+    }
+
+    .status.error { color: var(--red); }
+    .status.success { color: var(--green); }
+
+    /* Placeholder */
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 280px;
+      color: var(--muted);
+      gap: 12px;
+    }
+
+    .placeholder-icon { font-size: 3rem; opacity: 0.3; }
+    .placeholder-text { font-size: 0.85rem; text-align: center; line-height: 1.6; }
+
+    /* Hourly breakdown */
+    .hourly-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .hour-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .hour-label {
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .hour-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+
+    .hour-bar {
+      height: 3px;
+      border-radius: 2px;
+      margin-top: 6px;
+      background: var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hour-bar-fill {
+      position: absolute;
+      top: 0; left: 0; height: 100%;
+      border-radius: 2px;
+      background: var(--accent);
+      transition: width 0.5s ease;
+    }
+
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .hourly-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div>
+      <div class="logo">
+        <div class="logo-icon">🚦</div>
+        <div>
+          <h1>Smart<span>City</span> Traffic</h1>
+          <div class="badge">FORECASTING SYSTEM — UCT INTERNSHIP</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="stat-label">Built by</div>
+      <div style="font-family:'Space Mono',monospace; font-size:0.9rem;">Kadingela Ramya</div>
+      <div class="stat-sub">B.Tech CSE (AI & ML)</div>
+    </div>
+  </header>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-label">Junctions Monitored</div>
+      <div class="stat-value">4</div>
+      <div class="stat-sub">City intersections</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Model Used</div>
+      <div class="stat-value" style="font-size:1.1rem;">LSTM</div>
+      <div class="stat-sub">+ Random Forest</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Forecast Window</div>
+      <div class="stat-value">12h</div>
+      <div class="stat-sub">Hourly predictions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Data Points</div>
+      <div class="stat-value">48K+</div>
+      <div class="stat-sub">Training records</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- Form Panel -->
+    <div class="form-panel">
+      <div class="panel-title">Configure Forecast</div>
+
+      <div class="form-group">
+        <label>Select Junction</label>
+        <div class="junction-grid">
+          <button class="junction-btn active" onclick="selectJunction(1, this)" data-lag="60">
+            <span class="j-num">J1</span>
+            <span style="font-size:0.7rem;display:block;margin-bottom:2px;">Central Corridor</span>
+            <span style="font-size:0.65rem;color:#ff4d6d;">🔴 High Traffic</span>
+          </button>
+          <button class="junction-btn" onclick="selectJunction(2, this)" data-lag="20">
+            <span class="j-num">J2</span>
+            <span style="font-size:0.7rem;display:block;margin-bottom:2px;">East Residential</span>
+            <span style="font-size:0.65rem;color:#ff6b35;">🟠 Medium Traffic</span>
+          </button>
+          <button class="junction-btn" onclick="selectJunction(3, this)" data-lag="15">
+            <span class="j-num">J3</span>
+            <span style="font-size:0.7rem;display:block;margin-bottom:2px;">North Connector</span>
+            <span style="font-size:0.65rem;color:#ff6b35;">🟡 Moderate Traffic</span>
+          </button>
+          <button class="junction-btn" onclick="selectJunction(4, this)" data-lag="8">
+            <span class="j-num">J4</span>
+            <span style="font-size:0.7rem;display:block;margin-bottom:2px;">Outer Ring Road</span>
+            <span style="font-size:0.65rem;color:#00ff88;">🟢 Low Traffic</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Forecast Start Date & Time</label>
+        <input type="datetime-local" id="datetime" value="2017-11-15T08:00"/>
+      </div>
+
+      <div class="form-group">
+        <label>Recent Traffic (last hour)</label>
+        <input type="number" id="lag1" value="20" min="0" max="200"
+               style="width:100%;background:var(--surface);border:1px solid var(--border);
+                      border-radius:8px;color:var(--text);padding:12px 16px;
+                      font-family:'DM Sans',sans-serif;font-size:0.9rem;outline:none;"/>
+      </div>
+
+      <button class="predict-btn" id="predictBtn" onclick="predict()">
+        ▶ RUN FORECAST
+      </button>
+
+      <div class="status" id="status">Ready to forecast.</div>
+    </div>
+
+    <!-- Chart Panel -->
+    <div class="chart-panel">
+      <div class="chart-header">
+        <div class="panel-title" style="margin-bottom:0">Prediction Output</div>
+        <div class="result-highlight" id="resultHighlight" style="display:none">
+          <div class="result-label">Peak Traffic</div>
+          <div class="result-value" id="peakVal">--</div>
+          <div class="result-unit">vehicles / hour</div>
+        </div>
+      </div>
+
+      <div id="chartContainer">
+        <div class="placeholder">
+          <div class="placeholder-icon">📊</div>
+          <div class="placeholder-text">
+            Select a junction and click<br>
+            <strong style="color:var(--accent)">RUN FORECAST</strong><br>
+            to see traffic predictions
+          </div>
+        </div>
+      </div>
+
+      <div class="traffic-levels" id="levelBars" style="display:none">
+        <div class="level-block" id="lb0"></div>
+        <div class="level-block" id="lb1"></div>
+        <div class="level-block" id="lb2"></div>
+        <div class="level-block" id="lb3"></div>
+        <div class="level-block" id="lb4"></div>
+        <div class="level-block" id="lb5"></div>
+        <div class="level-block" id="lb6"></div>
+        <div class="level-block" id="lb7"></div>
+        <div class="level-block" id="lb8"></div>
+        <div class="level-block" id="lb9"></div>
+        <div class="level-block" id="lb10"></div>
+        <div class="level-block" id="lb11"></div>
+      </div>
+
+      <div class="hourly-grid" id="hourlyGrid" style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let selectedJunction = 1;
+  let chartInstance    = null;
+
+  function selectJunction(num, btn) {
+    selectedJunction = num;
+    document.querySelectorAll('.junction-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Auto-set lag1 based on junction's typical traffic
+    const lag = btn.getAttribute('data-lag');
+    if (lag) document.getElementById('lag1').value = lag;
+  }
+
+  async function predict() {
+    const btn      = document.getElementById('predictBtn');
+    const statusEl = document.getElementById('status');
+    const dt       = document.getElementById('datetime').value;
+    const lag1     = parseFloat(document.getElementById('lag1').value) || 20;
+
+    if (!dt) { statusEl.textContent = 'Please select a date and time.'; statusEl.className = 'status error'; return; }
+
+    btn.disabled      = true;
+    btn.textContent   = '⏳ FORECASTING...';
+    statusEl.textContent = 'Running model...';
+    statusEl.className   = 'status';
+
+    try {
+      const res  = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          junction: selectedJunction,
+          datetime: dt,
+          lag1: lag1, lag24: lag1 - 2, lag168: lag1 - 1,
+          roll3: lag1, roll24: lag1 - 1
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        renderChart(data.predictions, dt);
+        statusEl.textContent = `✓ Forecast complete for Junction ${selectedJunction}`;
+        statusEl.className   = 'status success';
+      } else {
+        statusEl.textContent = 'Error: ' + data.error;
+        statusEl.className   = 'status error';
+      }
+    } catch (e) {
+      statusEl.textContent = 'Connection error. Is Flask running?';
+      statusEl.className   = 'status error';
+    }
+
+    btn.disabled    = false;
+    btn.textContent = '▶ RUN FORECAST';
+  }
+
+  function renderChart(predictions, startDt) {
+    // Build hour labels
+    const start  = new Date(startDt);
+    const labels = predictions.map((_, i) => {
+      const d = new Date(start.getTime() + i * 3600000);
+      return d.getHours().toString().padStart(2,'0') + ':00';
+    });
+
+    const maxVal = Math.max(...predictions);
+    const minVal = Math.min(...predictions);
+
+    // Destroy old chart
+    if (chartInstance) chartInstance.destroy();
+
+    document.getElementById('chartContainer').innerHTML = '<canvas id="trafficChart"></canvas>';
+    const ctx = document.getElementById('trafficChart').getContext('2d');
+
+    // Color points by traffic level
+    const pointColors = predictions.map(v => {
+      const pct = (v - minVal) / (maxVal - minVal + 1);
+      if (pct > 0.7) return '#ff4d6d';
+      if (pct > 0.4) return '#ff6b35';
+      return '#00e5ff';
+    });
+
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: `Junction ${selectedJunction} — Predicted Vehicles`,
+          data: predictions,
+          borderColor: '#00e5ff',
+          backgroundColor: 'rgba(0,229,255,0.05)',
+          pointBackgroundColor: pointColors,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: { duration: 800, easing: 'easeInOutQuart' },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a2236',
+            borderColor: '#243050',
+            borderWidth: 1,
+            titleColor: '#00e5ff',
+            bodyColor: '#e2e8f0',
+            callbacks: {
+              label: ctx => ` ${ctx.raw} vehicles/hr`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 } }, beginAtZero: true }
+        }
+      }
+    });
+
+    // Peak highlight
+    document.getElementById('peakVal').textContent = maxVal;
+    document.getElementById('resultHighlight').style.display = 'block';
+
+    // Level bars
+    document.getElementById('levelBars').style.display = 'grid';
+    predictions.slice(0, 12).forEach((v, i) => {
+      const pct = (v - minVal) / (maxVal - minVal + 1);
+      const el  = document.getElementById(`lb${i}`);
+      el.className = 'level-block ' + (pct > 0.7 ? 'high' : pct > 0.4 ? 'medium' : 'low');
+    });
+
+    // Hourly cards
+    const grid = document.getElementById('hourlyGrid');
+    grid.style.display = 'grid';
+    grid.innerHTML = predictions.slice(0, 12).map((v, i) => {
+      const pct  = Math.round(((v - minVal) / (maxVal - minVal + 1)) * 100);
+      const col  = pct > 70 ? '#ff4d6d' : pct > 40 ? '#ff6b35' : '#00e5ff';
+      return `
+        <div class="hour-card">
+          <div class="hour-label">${labels[i]}</div>
+          <div class="hour-val" style="color:${col}">${v}</div>
+          <div class="hour-bar"><div class="hour-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        </div>`;
+    }).join('');
+  }
+</script>
+</body>
+</html>

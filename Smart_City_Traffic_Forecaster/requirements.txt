@@ -1,0 +1,16 @@
+flask
+numpy
+pandas
+scikit-learn
+joblib
+
+# --- TensorFlow: uncomment ONE line depending on your Python version ---
+
+# Python 3.9 / 3.10 / 3.11  (most common — try this first)
+tensorflow==2.15.0
+
+# Python 3.12+ (if above fails)
+# tensorflow==2.16.1
+
+# If BOTH fail, try:
+# pip install tf-keras tensorflow

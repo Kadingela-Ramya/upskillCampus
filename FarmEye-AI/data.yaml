@@ -1,0 +1,19 @@
+# FarmEye-AI dataset configuration
+#
+# This just tells the training script where to find images/labels and what
+# the two classes are. Update "path" to wherever you unzip the dataset on
+# your machine before running train.py.
+
+path: ./dataset
+train: images/train
+val: images/val
+test: images/test
+
+nc: 2
+
+# 0 = crop, 1 = weed -> double check this against a few raw label .txt files
+# before training. Some public datasets number classes the other way round,
+# and there's no way to know for sure without opening one and looking.
+names:
+  0: crop
+  1: weed
